@@ -1,3 +1,6 @@
+#ifdef SYSTEM3_EMBEDDED
+#include "embedded.h"
+#endif
 /*
 	ALICE SOFT SYSTEM 3 for Win32
 
@@ -38,6 +41,7 @@ SDL_Texture* create_scanline_texture(SDL_Renderer* renderer, int width, int heig
 
 AGS::AGS(const Config& config, const GameId& game_id) : game_id(game_id)
 {
+  try {
 	// 画面サイズ
 	if (game_id.is(GameId::GAKUEN_SENKI)) {
 		window_width = 582;
@@ -48,7 +52,11 @@ AGS::AGS(const Config& config, const GameId& game_id) : game_id(game_id)
 		window_height = screen_height = 400;
 	}
 
+#ifdef SYSTEM3_EMBEDDED
+	system3_host_resize(window_width, window_height);
+#else
 	sdl::SetWindowContentSize(g_window, window_width, window_height);
+#endif
 	sdl::SetRenderLogicalPresentation(g_renderer, window_width, window_height);
 	sdlTexture = SDL_CreateTexture(g_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, screen_width, screen_height);
 	scanline_texture = NULL;
@@ -67,7 +75,13 @@ AGS::AGS(const Config& config, const GameId& game_id) : game_id(game_id)
 		load_censor_list(config.censor_list.c_str());
 
 	// フォント
-	TTF_Init();
+#if SYSTEM3_SDL_VERSION == 2
+	if (TTF_Init() < 0)
+#else
+	if (!TTF_Init())
+#endif
+		sys_error("Cannot initialize fonts: %s", SDL_GetError());
+	ttf_initialized = true;
 	if (!config.font_file.empty()) {
 		rw_font = open_file(config.font_file.c_str());
 		if (!rw_font)
@@ -89,8 +103,7 @@ AGS::AGS(const Config& config, const GameId& game_id) : game_id(game_id)
 	if (!hFont16 || !hFont24 || !hFont32 || !hFont48 || !hFont64) {
 		sys_error("Cannot open font: %s", SDL_GetError());
 	}
-	if (config.no_antialias)
-		ags_setAntialiasedStringMode(0);
+	ags_setAntialiasedStringMode(config.no_antialias ? 0 : 1);
 
 	// カーソル初期化
 	for(int i = 0; i < 10; i++) {
@@ -192,9 +205,15 @@ AGS::AGS(const Config& config, const GameId& game_id) : game_id(game_id)
 	cursor_index = 0;
 
 	set_scanline_mode(config.scanline);
+} catch (...) {
+	cleanup();
+	throw;
+  }
 }
 
-AGS::~AGS()
+AGS::~AGS() { cleanup(); }
+
+void AGS::cleanup()
 {
 	// カーソル開放
 	for(int i = 0; i < 10; i++) {
@@ -220,6 +239,8 @@ AGS::~AGS()
 	}
 
 	SDL_DestroyTexture(sdlTexture);
+	SDL_DestroyTexture(scanline_texture);
+	if (ttf_initialized) TTF_Quit();
 }
 
 void AGS::set_cg_file(const char *file_name)
@@ -300,6 +321,9 @@ void AGS::update_screen()
 	if (scanline_texture)
 		sdl::RenderTexture(g_renderer, scanline_texture, NULL, NULL);
 	SDL_RenderPresent(g_renderer);
+#ifdef SYSTEM3_EMBEDDED
+	system3_host_present();
+#endif
 }
 
 void AGS::set_scanline_mode(bool enable)
@@ -342,7 +366,11 @@ void AGS::load_censor_list(const char* fname)
 	if (!fname || !*fname)
 		return;
 
+	#ifdef SYSTEM3_EMBEDDED
+	FILE *fp = fopen(system3_host_path(fname).c_str(), "r");
+#else
 	FILE *fp = fopen(fname, "r");
+#endif
 	if (!fp) {
 		ERROR("failed to open %s", fname);
 		return;

@@ -1,3 +1,6 @@
+#ifdef SYSTEM3_EMBEDDED
+#include "embedded.h"
+#endif
 /*
 	ALICE SOFT SYSTEM 3 for Win32
 
@@ -55,7 +58,11 @@ void FILEIO::set_savedir(const std::string& dir)
 
 int FILEIO::stat_save(int index, struct stat* buf)
 {
+#ifdef SYSTEM3_EMBEDDED
+	return stat(system3_host_path(savefile_name(index).c_str(), true).c_str(), buf);
+#else
 	return stat(FindFile(savedir, savefile_name(index).c_str()).c_str(), buf);
+#endif
 }
 
 FILEIO::~FILEIO(void)
@@ -70,8 +77,12 @@ FILEIO::~FILEIO(void)
 // static
 std::unique_ptr<FILEIO> FILEIO::open(const char *file_name, int mode)
 {
+#ifdef SYSTEM3_EMBEDDED
+	std::string path = system3_host_path(file_name, mode & FILEIO_SAVEDATA, mode & FILEIO_WRITE_BINARY);
+#else
 	std::string path =
 		FindFile((mode & FILEIO_SAVEDATA) ? savedir : ".", file_name);
+#endif
 
 	mode &= ~FILEIO_SAVEDATA;
 

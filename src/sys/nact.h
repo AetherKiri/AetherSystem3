@@ -70,7 +70,7 @@ public:
 	virtual uint16 cali() = 0;
 
 	Scenario sco;
-	AGS* ags;
+	std::unique_ptr<AGS> ags;
 	std::unique_ptr<Encoding> encoding;
 
 	// debugger accessors
@@ -83,8 +83,8 @@ protected:
 	const Config& config;
 	const GameId& game_id;
 	Strings strings;
-	MAKO* mako;
-	MsgSkip* msgskip;
+	std::unique_ptr<MAKO> mako;
+	std::unique_ptr<MsgSkip> msgskip;
 
 	void trace(const char *format, ...);
 	void sys_sleep(int ms);

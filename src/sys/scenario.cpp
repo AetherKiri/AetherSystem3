@@ -10,7 +10,7 @@ uint8_t Scenario::fetch_command()
 		sys_error("Scenario error: invalid address %d:%04x", page_, addr_);
 
 	// Skip SysEng's "new style" marker
-	if (page_ == 0 && addr_ == 2 && data_[2] == 'R' && data_[3] == 'E' && data_[4] == 'V')
+	if (page_ == 0 && addr_ == 2 && data_size_ >= 5 && data_[2] == 'R' && data_[3] == 'E' && data_[4] == 'V')
 		addr_ = 5;
 
 	update_cmd_addr();

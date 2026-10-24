@@ -1,3 +1,8 @@
+#ifdef SYSTEM3_EMBEDDED
+#include "embedded.h"
+#include <atomic>
+#include <algorithm>
+#endif
 /*
 	ALICE SOFT SYSTEM 3 for Win32
 
@@ -101,6 +106,9 @@ private:
 };
 
 const int SAMPLE_RATE = 44100;
+#ifdef SYSTEM3_EMBEDDED
+std::atomic<int> audio_peak{0};
+#endif
 
 #ifdef _WIN32
 // Per-game mapping from music numbers to CD tracks.  This is necessary to
@@ -160,6 +168,12 @@ void audio_callback(void*, Uint8* stream, int len)
 		music->mix(stream, len);
 	if (pcm_stream)
 		mix_pcm(stream, len);
+#ifdef SYSTEM3_EMBEDDED
+    int peak = audio_peak.load();
+    const auto *samples = reinterpret_cast<const int16_t *>(stream);
+    for (int i=0; i<len/2; ++i) peak = std::max(peak, std::abs(int(samples[i])));
+    audio_peak = peak;
+#endif
 }
 
 } // namespace
@@ -170,6 +184,9 @@ MAKO::MAKO(const Config& config, const GameId& game_id) :
 	next_loop(0),
 	game_id(game_id)
 {
+#ifdef SYSTEM3_EMBEDDED
+    audio_peak = 0;
+#endif
 	if (!config.playlist.empty())
 		load_playlist(config.playlist.c_str());
 
@@ -218,12 +235,18 @@ MAKO::~MAKO()
 
 	if (g_device)
 		SDL_CloseAudioDevice(g_device);
+	g_device = 0;
+	for (const char* entry : playlist) free(const_cast<char*>(entry));
 	SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
 bool MAKO::load_playlist(const char* path)
 {
+#ifdef SYSTEM3_EMBEDDED
+	FILE* fp = fopen(system3_host_path(path).c_str(), "r");
+#else
 	FILE* fp = fopen(path, "r");
+#endif
 	if (!fp) {
 		WARNING("Cannot open %s", path);
 		return false;
@@ -254,7 +277,10 @@ void MAKO::play_music(int page)
 		if (track >= playlist.size() || !playlist[track])
 			return;
 		const char* file = playlist[track];
-#ifdef __ANDROID__
+#ifdef SYSTEM3_EMBEDDED
+		const std::string absolute = system3_host_path(file);
+		file = absolute.c_str();
+#elif defined(__ANDROID__)
 		// dr_mp3/stb_vorbis open the file via fopen, which requires an absolute
 		// path on Android.
 		char abspath[PATH_MAX];
@@ -460,3 +486,10 @@ bool MAKO::is_cd_available() const
 {
 	return !playlist.empty();
 }
+
+#ifdef SYSTEM3_EMBEDDED
+int system3_host_audio_peak() { return audio_peak.load(); }
+void system3_host_pause_audio(bool pause) {
+	if (g_device) SDL_PauseAudioDevice(g_device, pause);
+}
+#endif

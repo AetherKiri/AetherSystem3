@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdint.h>
 #include "dri.h"
+#include "common.h"
 
 class Encoding;
 
@@ -13,7 +14,10 @@ public:
 	void open(const char* file_name) { adisk.open(file_name); }
 	bool loaded() const { return adisk.loaded(); }
 	void page_jump(int page, int addr);
-	int default_addr() { return data_[0] | data_[1] << 8; }
+	int default_addr() {
+        if (data_size_ < 2) sys_error("Scenario header is truncated");
+        return data_[0] | data_[1] << 8;
+    }
 
 	int page() const { return page_; }
 	// start address of the current command
@@ -27,10 +31,14 @@ public:
 	uint8_t fetch_command();
 	void update_cmd_addr() { cmd_addr_ = addr_; }
 
-	uint8_t getd() { return data_[addr_++]; }
+	uint8_t getd() {
+        if (addr_ < 0 || static_cast<size_t>(addr_) >= data_size_)
+            sys_error("Scenario read beyond page %d at %04x", page_, addr_);
+        return data_[addr_++];
+    }
 	uint16_t getw() {
-		uint16_t w = data_[addr_++];
-		w |= data_[addr_++] << 8;
+		uint16_t w = getd();
+		w |= getd() << 8;
 		return w;
 	}
 	void ungetd() { addr_--; }
@@ -66,11 +74,11 @@ private:
 
 	Dri adisk;
 	std::vector<std::vector<uint8_t>> pages_;
-	const uint8_t* data_;
-	size_t data_size_;
-	int page_;
-	int addr_;
-	int cmd_addr_;
+	const uint8_t* data_ = nullptr;
+	size_t data_size_ = 0;
+	int page_ = 0;
+	int addr_ = 0;
+	int cmd_addr_ = 0;
 	std::vector<StackFrame> call_stack;
 };
 

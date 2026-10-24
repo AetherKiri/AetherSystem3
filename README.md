@@ -1,3 +1,22 @@
+# Aether embedding branch
+
+The `aether` branch carries the native host interface used by Aether. Keep
+`master` reserved for upstream synchronization. Aether pins this checkout as
+`packages/system3`; initialize it recursively for `deps/ymfm`.
+
+The embedded target uses SDL2 software rendering to an RGBA surface inside the
+Aether window. Its worker has a private input queue, cooperative stop/pause,
+contained C++ errors and isolated saves. Relative files resolve against the
+selected game without changing process cwd. Existing imported saves are read
+as a fallback; writes go to Aether’s game-specific save directory. Translated
+`system3.ini` game IDs, encoding, playlist and font settings are preserved;
+original Japanese games retain Shift-JIS. Virtual controls default off.
+
+Aether’s native contract and scenario tests live in `tests/system3_native` in
+the parent repository. Upstream’s standalone build is retained below.
+
+---
+
 # System3 for SDL2/SDL3
 
 This is an SDL port of

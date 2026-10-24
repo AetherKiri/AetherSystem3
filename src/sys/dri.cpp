@@ -20,17 +20,22 @@ void Dri::open(const char* file_name)
 	if (!fio)
 		return;
 
+	fio->seek(0, SEEK_END);
+	const long size = fio->tell();
+	if (size < 4) return;
+	fio->seek(0, SEEK_SET);
 	int link_sector = fio->getw();
 	int data_sector = fio->getw();
+	if (link_sector < 1 || data_sector <= link_sector || (data_sector - 1) * 256L > size) return;
 
 	link_table.resize((data_sector - link_sector) * 256);
 	fio->seek((link_sector - 1) * 256, SEEK_SET);
-	fio->read(link_table.data(), 256 * (data_sector - link_sector));
+	if (!fio->read(link_table.data(), link_table.size())) link_table.clear();
 }
 
 std::vector<uint8> Dri::load(int page)
 {
-	if (static_cast<size_t>(page) >= link_table.size() / 2)
+	if (page < 1 || static_cast<size_t>(page) > link_table.size() / 2)
 		return {};
 
 	int disk_index = link_table[(page - 1) * 2];
@@ -46,12 +51,14 @@ std::vector<uint8> Dri::load(int page)
 	fio->seek(link_index * 2, SEEK_SET);
 	int start_sector = fio->getw();
 	int end_sector = fio->getw();
-	if (end_sector <= start_sector)
+	fio->seek(0, SEEK_END);
+	const long size = fio->tell();
+	if (start_sector < 1 || end_sector <= start_sector || (end_sector - 1) * 256L > size)
 		return {};
 
 	std::vector<uint8_t> buffer((end_sector - start_sector) * 256);
 	fio->seek((start_sector - 1) * 256, SEEK_SET);
-	fio->read(buffer.data(), 256 * (end_sector - start_sector));
+	if (!fio->read(buffer.data(), buffer.size())) return {};
 
 	return buffer;
 }

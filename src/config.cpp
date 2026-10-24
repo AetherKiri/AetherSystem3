@@ -1,3 +1,6 @@
+#ifdef SYSTEM3_EMBEDDED
+#include "embedded.h"
+#endif
 #include "config.h"
 
 #include "common.h"
@@ -118,6 +121,7 @@ void init_string(std::string& s, Encoding* encoding, const char *dflt)
 
 Config::Config(int argc, char *argv[])
 {
+#ifndef SYSTEM3_EMBEDDED
 	// Process the -gamedir option first so that system3.ini is loaded from
 	// the specified directory.
 	for (int i = 1; i < argc; i++) {
@@ -125,6 +129,7 @@ Config::Config(int argc, char *argv[])
 			chdir(argv[++i]);
 	}
 
+#endif
 	load_ini();
 
 	for (int i = 1; i < argc; i++) {
@@ -171,9 +176,14 @@ Config::Config(int argc, char *argv[])
 
 void Config::load_ini()
 {
+	#ifdef SYSTEM3_EMBEDDED
+	FILE *fp = fopen(system3_host_path(INIFILENAME).c_str(), "r");
+#else
 	FILE *fp = fopen(INIFILENAME, "r");
+#endif
 	if (!fp)
 		return;
+	std::unique_ptr<FILE, decltype(&fclose)> file_guard(fp, &fclose);
 
 	enum {
 		NO_SECTION,
@@ -190,7 +200,7 @@ void Config::load_ini()
 		if (is_empty_line(line))
 			continue;
 
-		if (sscanf(line, "[%[^]]]", val)) {
+		if (sscanf(line, "[%255[^]]]", val)) {
 			if (strcasecmp(val, "config") == 0)
 				current_section = CONFIG;
 			else if (strcasecmp(val, "string") == 0)
@@ -271,7 +281,6 @@ void Config::load_ini()
 			WARNING(INIFILENAME ":%d parse error", lineno);
 		}
 	}
-	fclose(fp);
 }
 
 Strings Config::get_strings(Encoding* encoding, bool english) const

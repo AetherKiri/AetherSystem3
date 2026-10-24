@@ -231,12 +231,14 @@ GameId::GameId(const Config& config)
 		entry = lookup(crc32_a, crc32_b);
 		if (crc32_a && !entry) {
 			WARNING("Cannot determine game id. crc32_a: %08x, crc32_b: %08x", crc32_a, crc32_b);
+#ifndef SYSTEM3_EMBEDDED
 			SDL_ShowSimpleMessageBox(
 				SDL_MESSAGEBOX_WARNING, "system3",
 				"Unable to determine game ID.\n"
 				"If you are running a modified game, please specify 'game = <original-game-id>' in system3.ini.\n"
 				"See README.md for more information.",
 				NULL);
+#endif
 		}
 	}
 	if (entry) {

@@ -233,7 +233,7 @@ void NACT::handle_windows_event(MSG* msg)
 	case WM_COMMAND:
 		switch (msg->wParam) {
 		case ID_SCREENSHOT:
-			save_screenshot(ags);
+			save_screenshot(ags.get());
 			break;
 		case ID_RESTART:
 			quit(NACT_RESTART);

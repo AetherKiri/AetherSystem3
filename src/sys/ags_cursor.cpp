@@ -1,3 +1,6 @@
+#ifdef SYSTEM3_EMBEDDED
+#include "embedded.h"
+#endif
 /*
 	ALICE SOFT SYSTEM 3 for Win32
 
@@ -12,6 +15,9 @@ extern SDL_Renderer* g_renderer;
 
 void AGS::load_cursor(int page, uint8_t flags)
 {
+#ifdef SYSTEM3_EMBEDDED
+	return;
+#endif
 	// カーソルCGをロードする
 	auto j_backup = cg_dest;
 	ScreenId dest = dest_screen;
@@ -81,6 +87,9 @@ void AGS::load_cursor(int page, uint8_t flags)
 
 void AGS::select_cursor()
 {
+#ifdef SYSTEM3_EMBEDDED
+	return;
+#endif
 	if(cursor_index == 0) {
 		SDL_SetCursor(SDL_GetDefaultCursor());
 	} else if(1 <= cursor_index && cursor_index <= 10 && hCursor[cursor_index - 1]) {

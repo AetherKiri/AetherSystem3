@@ -1,3 +1,6 @@
+#ifdef SYSTEM3_EMBEDDED
+#include "embedded.h"
+#endif
 /*
 	ALICE SOFT SYSTEM 3 for Win32
 
@@ -72,13 +75,14 @@ NACT::NACT(const Config& config, const GameId& game_id)
 	sco.page_jump(0, 2);
 
 	// 各種クラス生成
-	ags = new AGS(config, game_id);
-	mako = new MAKO(config, game_id);
-	msgskip = new MsgSkip();
+	ags = std::make_unique<AGS>(config, game_id);
+	mako = std::make_unique<MAKO>(config, game_id);
+	msgskip = std::make_unique<MsgSkip>();
 
 	init_windows();
 	init_text();
 
+#ifndef SYSTEM3_EMBEDDED
 	SDL_Init(sdl::INIT_GAMEPAD);
 #if SYSTEM3_SDL_VERSION == 2
 	for (int i = 0; i < SDL_NumJoysticks(); ++i) {
@@ -104,13 +108,14 @@ NACT::NACT(const Config& config, const GameId& game_id)
 	}
 	SDL_free(ids);
 #endif
+#endif
 }
 
 NACT::~NACT()
 {
-	delete ags;
-	delete mako;
-	delete msgskip;
+	msgskip.reset();
+	mako.reset();
+	ags.reset();
 
 	platform_finalize();
 }
@@ -155,6 +160,9 @@ void NACT::quit(int code)
 EMSCRIPTEN_KEEPALIVE  // Prevent inlining, because this function is listed in ASYNCIFY_ADD
 void NACT::execute()
 {
+#ifdef SYSTEM3_EMBEDDED
+	system3_host_checkpoint();
+#endif
 	if (game_id.sys_ver == 1 && sco.page() == 0 && sco.current_addr() == 2) {
 		opening();
 	}
@@ -782,7 +790,9 @@ void NACT::sys_sleep(int ms) {
 	if (g_debugger)
 		g_debugger->on_sleep();
 #endif
-#ifdef __EMSCRIPTEN__
+#if defined(SYSTEM3_EMBEDDED)
+	system3_host_delay(ms);
+#elif defined(__EMSCRIPTEN__)
 	emscripten_sleep(ms);
 #else
 	SDL_Delay(ms);

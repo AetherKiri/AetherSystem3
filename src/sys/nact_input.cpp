@@ -1,3 +1,6 @@
+#ifdef SYSTEM3_EMBEDDED
+#include "embedded.h"
+#endif
 /*
 	ALICE SOFT SYSTEM 3 for Win32
 
@@ -42,10 +45,22 @@ void NACT::handle_event(SDL_Event e)
 		break;
 #endif
 
+#ifdef SYSTEM3_EMBEDDED
+	case SDL_MOUSEBUTTONDOWN:
+	case SDL_MOUSEBUTTONUP:
+		mousex = e.button.x * ags->screen_width / ags->window_width;
+		mousey = e.button.y * ags->screen_height / ags->window_height;
+		break;
+#endif
 	case sdl::EVENT_MOUSE_MOTION: {
 		float render_x, render_y;
+#ifdef SYSTEM3_EMBEDDED
+		render_x = e.motion.x;
+		render_y = e.motion.y;
+#else
 		sdl::RenderCoordinatesFromWindow(g_renderer, e.motion.x, e.motion.y,
 			&render_x, &render_y);
+#endif
 		mousex = render_x * ags->screen_width / ags->window_width;
 		mousey = render_y * ags->screen_height / ags->window_height;
 		break;
@@ -98,7 +113,12 @@ void NACT::handle_event(SDL_Event e)
 void NACT::pump_events()
 {
 	SDL_Event e;
-	while (SDL_PollEvent(&e)) {
+	#ifdef SYSTEM3_EMBEDDED
+	while (system3_host_poll_event(&e))
+#else
+	while (SDL_PollEvent(&e))
+#endif
+	{
 		handle_event(std::move(e));
 	}
 }
@@ -106,7 +126,11 @@ void NACT::pump_events()
 void NACT::process_next_event()
 {
 	SDL_Event e;
+#ifdef SYSTEM3_EMBEDDED
+	system3_host_wait_event(&e);
+#else
 	SDL_WaitEvent(&e);
+#endif
 	handle_event(std::move(e));
 }
 
@@ -120,8 +144,13 @@ uint8 NACT::get_key(bool notify_texthook)
 	pump_events();
 
 	// キーボード＆マウス
+#ifdef SYSTEM3_EMBEDDED
+	const auto* key = system3_host_keyboard();
+	Uint32 mouse = system3_host_mouse();
+#else
 	const auto* key = SDL_GetKeyboardState(NULL);
 	Uint32 mouse = SDL_GetMouseState(NULL, NULL);
+#endif
 
 	if(key[SDL_SCANCODE_UP    ] || key[SDL_SCANCODE_KP_8 ] ) val |= 0x01;
 	if(key[SDL_SCANCODE_DOWN  ] || key[SDL_SCANCODE_KP_2 ] ) val |= 0x02;
@@ -164,8 +193,13 @@ void NACT::set_cursor(int x, int y)
 {
 	if (!mouse_move_enabled)
 		return;
+#ifdef SYSTEM3_EMBEDDED
+	mousex = x;
+	mousey = y;
+#else
 	sdl::RenderCoordinatesToWindow(g_renderer, g_window, &x, &y);
 	SDL_WarpMouseInWindow(g_window, x, y);
+#endif
 }
 
 int NACT::get_wheel()
@@ -177,6 +211,10 @@ int NACT::get_wheel()
 
 void NACT::show_quit_dialog()
 {
+#ifdef SYSTEM3_EMBEDDED
+	quit(0);
+	return;
+#endif
 	const SDL_MessageBoxButtonData buttons[] = {
 		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Quit" },
 		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Cancel" },
@@ -208,4 +246,11 @@ void simulate_right_button(int pressed) {
 }
 
 } // extern "C"
+#endif
+
+#ifdef SYSTEM3_EMBEDDED
+void system3_host_reset_cursor() {
+	mousex = mousey = wheel = 0;
+	touch_state = TOUCH_NONE;
+}
 #endif

@@ -1,3 +1,6 @@
+#ifdef SYSTEM3_EMBEDDED
+#include "embedded.h"
+#endif
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +12,9 @@
 #include "sdl_compat.h"
 
 sdl::IOStream* open_resource(const char* name, const char* type) {
-#ifdef _WIN32
+#if defined(SYSTEM3_EMBEDDED)
+	return nullptr; // The host supplies a font; games carry their own audio.
+#elif defined(_WIN32)
 	// On Windows, read from resource.
 	HINSTANCE hInst = GetModuleHandle(NULL);
 	HRSRC hRes = FindResource(hInst, name, type);
@@ -29,7 +34,9 @@ sdl::IOStream* open_resource(const char* name, const char* type) {
 }
 
 sdl::IOStream* open_file(const char* name) {
-#ifdef __ANDROID__
+#if defined(SYSTEM3_EMBEDDED)
+	return sdl::IOFromFile(system3_host_path(name).c_str(), "rb");
+#elif defined(__ANDROID__)
 	// SDL_IOFromFile() treats relative paths as APK assets on Android, so use
 	// an absolute path to open files relative to the current game directory.
 	char path[PATH_MAX];

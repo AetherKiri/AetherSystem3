@@ -105,10 +105,12 @@ public:
 private:
 	const GameId& game_id;
 
+	void cleanup();
+	bool ttf_initialized = false;
 	// screen
-	SDL_Texture* sdlTexture;
-	SDL_Texture* scanline_texture;
-	SDL_Surface* hBmpScreen[NR_SCREENS]; // 8bpp
+	SDL_Texture* sdlTexture = nullptr;
+	SDL_Texture* scanline_texture = nullptr;
+	SDL_Surface* hBmpScreen[NR_SCREENS] = {}; // 8bpp
 	uint8_t (*vram[NR_SCREENS])[640];  // convenience pointer to hBmpScreen[i]->pixels
 	SDL_Rect dirty_rect = {};
 
@@ -124,8 +126,8 @@ private:
 	std::unordered_set<int> censor_list;
 
 	// palette
-	SDL_Palette* program_palette;
-	SDL_Palette* screen_palette;
+	SDL_Palette* program_palette = nullptr;
+	SDL_Palette* screen_palette = nullptr;
 
 	uint8_t palR(uint8_t col) const { return screen_palette->colors[col].r; }
 	uint8_t palG(uint8_t col) const { return screen_palette->colors[col].g; }
@@ -136,19 +138,19 @@ private:
 	int fade_color = 0;  // 0: black, 255: white
 
 	// font
-	sdl::IOStream* rw_font;
-	TTF_Font* hFont16;
-	TTF_Font* hFont24;
-	TTF_Font* hFont32;
-	TTF_Font* hFont48;
-	TTF_Font* hFont64;
+	sdl::IOStream* rw_font = nullptr;
+	TTF_Font* hFont16 = nullptr;
+	TTF_Font* hFont24 = nullptr;
+	TTF_Font* hFont32 = nullptr;
+	TTF_Font* hFont48 = nullptr;
+	TTF_Font* hFont64 = nullptr;
 	uint8 gaiji[188][32];
 
 	void draw_char(ScreenId dest, int dest_x, int dest_y, uint16 code, TTF_Font* font, uint8 color);
 	void draw_char_antialias(ScreenId dest, int dest_x, int dest_y, uint16 code, TTF_Font* font, uint8 color, uint8 cache[]);
 
 	// mouse
-	SDL_Cursor* hCursor[10];
+	SDL_Cursor* hCursor[10] = {};
 };
 
 extern "C" void ags_setAntialiasedStringMode(int on);

@@ -18,8 +18,13 @@ public:
 
 	int next_codepoint(std::string_view& s) override
 	{
+        if (s.empty()) return 0;
 		int code = (unsigned char)s[0];
 		if (is_2byte(code)) {
+            if (s.size() < 2 || (unsigned char)s[1] < 0x40) {
+                s.remove_prefix(1);
+                return 0xfffd;
+            }
 			code = (code << 8) | (unsigned char)s[1];
 			s.remove_prefix(2);
 		} else {
@@ -30,7 +35,9 @@ public:
 
 	std::string fromUtf8(std::string_view sv) override
 	{
-		auto src = reinterpret_cast<const unsigned char*>(sv.data());
+        std::string padded(sv);
+        padded.append(4, '\0');
+		auto src = reinterpret_cast<const unsigned char*>(padded.data());
 		auto end = src + sv.size();
 		std::string result;
 
@@ -70,7 +77,9 @@ public:
 
 	std::string toUtf8(std::string_view sv) override
 	{
-		auto src = reinterpret_cast<const unsigned char*>(sv.data());
+        std::string padded(sv);
+        padded.append(4, '\0');
+		auto src = reinterpret_cast<const unsigned char*>(padded.data());
 		auto end = src + sv.size();
 		std::string result;
 
@@ -85,8 +94,13 @@ public:
 				c = 0xff60 + *src - 0xa0;
 				src++;
 			} else {
-				c = s2u[*src - 0x80][*(src+1) - 0x40];
-				src += 2;
+                if (src + 1 >= end || src[0] < 0x80 || src[1] < 0x40) {
+                    c = 0xfffd;
+                    ++src;
+                } else {
+				    c = s2u[*src - 0x80][*(src+1) - 0x40];
+				    src += 2;
+                }
 			}
 
 			if (c <= 0x7f) {
@@ -128,6 +142,7 @@ private:
 		// 1-byte kana characters.
 		if (code >= 0xa0 && code <= 0xdf)
 			return 0xff60 + code - 0xa0;
+		if (code < 0x100) return 0xfffd;
 		// Gaiji characters.
 		if (0xeb9f <= code && code <= 0xebfc)
 			return code - 0xeb9f + GAIJI_FIRST;
@@ -153,6 +168,19 @@ public:
 
 	int next_codepoint(std::string_view& s) override
 	{
+        if (s.empty()) return 0;
+        unsigned char first = s[0];
+        int length = mblen(first);
+        if (s.size() < static_cast<size_t>(length)) {
+            s.remove_prefix(1);
+            return 0xfffd;
+        }
+        for (int i = 1; i < length; ++i) {
+            if ((static_cast<unsigned char>(s[i]) & 0xc0) != 0x80) {
+                s.remove_prefix(1);
+                return 0xfffd;
+            }
+        }
 		int code;
 		unsigned char c = s[0];
 
@@ -178,6 +206,8 @@ public:
 			while (!s.empty() && 0x80 <= (unsigned char)s[0] && (unsigned char)s[0] <= 0xbf)
 				s.remove_prefix(1);
 		}
+		const int minimum[] = {0, 0, 0x80, 0x800, 0x10000};
+		if (code < minimum[length] || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return 0xfffd;
 		return code;
 	}
 
@@ -197,7 +227,7 @@ int Encoding::mbslen(std::string_view s)
 	int len = 0;
 	while (!s.empty()) {
 		int n = mblen((unsigned char)s[0]);
-		s.remove_prefix(n);
+		s.remove_prefix(std::min(s.size(), static_cast<size_t>(n)));
 		len++;
 	}
 	return len;

@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include "common.h"
+#include <memory>
 #include <tuple>
 #include <utility>
 #include <stdio.h>
@@ -183,7 +184,8 @@ void Config::load_ini()
 #endif
 	if (!fp)
 		return;
-	std::unique_ptr<FILE, decltype(&fclose)> file_guard(fp, &fclose);
+	auto close_file = [](FILE *file) noexcept { fclose(file); };
+	std::unique_ptr<FILE, decltype(close_file)> file_guard(fp, close_file);
 
 	enum {
 		NO_SECTION,
